@@ -21,19 +21,24 @@ public class LZW {
 	private static final int[] BITS = { BIT_0, BIT_1, BIT_2, BIT_3, BIT_4, BIT_5, BIT_6, BIT_7 };
 	
 	private HashMap <String, Integer> dict;//dictionary to store ascii characters. Has no max bound and no set byte length;
-	private File orginalFile;//input file that user wants to read in and compress
+	private File originalFile;//input file that user wants to read in and compress
 	private int dictLength;//length of dictionary
+	
+	ArrayList<String> originalString; //originalFile as string
+	ArrayList<Integer> originalInts; //og file as int arraylist
 	
 	//constructor takes in a file to be compressed and intializes the dictionary of ascii characters.
 	public LZW (File original)
 	{
-		orginalFile = original;
+		originalFile = original;
 		this.dict = new HashMap <String,Integer>();
 		dictLength = 256;
 		for (int k = 0; k < dictLength; k++)
 		{
 			dict.put("" + (char)k, k);
 		}
+		originalString = new ArrayList<String>(); 
+		originalInts = new ArrayList<Integer>(); 
 	}
 
 	
@@ -42,9 +47,9 @@ public class LZW {
 		try 
 		{
 			//This reader is used to read input file
-			BufferedReader br = new BufferedReader (new FileReader(orginalFile));
+			BufferedReader br = new BufferedReader (new FileReader(originalFile));
 			//This stream is used to write to binary file
-			FileOutputStream fileWriter = new FileOutputStream("/Users/Alex/Desktop/Advanced-Topics-CS/LZW/compressedFile.bin");
+			FileOutputStream fileWriter = new FileOutputStream("/Users/ava/eclipse-workspace/Alex-LZW-Compression/compressedFile.bin");
 			//current tracks the current character or string being checked in the algorithm
 			String current = ""+ (char)br.read();
 			//asciiVal is used to store the ascii value of the variable "current"
@@ -63,11 +68,15 @@ public class LZW {
 				}
 				else
 				{
+					if(current != "")
+						originalString.add(current);
+					
 					asciiVal = dict.get(current);
 					binaryString += LZW.toBinary(asciiVal, 8);//toBinary(int number, int length) number is turned into a string of 1's and 0's. length is length of binary string made by this method
 					dict.put (current+next,dictLength);//not dictLength+1 because dictLength is always one value greater than dictionary index.
 					current = next;
 					dictLength++;
+					
 				}
 				br.mark(100);
 			}
@@ -122,86 +131,63 @@ public class LZW {
 	    }
 	    return l_raw;
 	  }
-	
-	public static final int BUFFER_SIZE = 8;//number of bits placed at a time into binaryString
-	public String binaryString = "";//String of 1s and 0s
-	public int[] decimalArray;//array of decimals corresponding to each symbol, or 9 bits
-	public Map <Integer, String> decodeDict = new HashMap<Integer,String>(); //same as dict but with decimal Integer as key and String as value.
-	public String decodedString = "";//final original String
-	
-	public static void decompress () throws IOException
-	{
-		toString();
-		makeDecimalArray();
-		buildDictionary();
 		
-		//writing decodedString to .txt file
-		try (PrintWriter out = new PrintWriter("decompressedFile.txt")) {
-		    out.println(text);
-		}
-	}
-	
-	//takes in binary file and returns String of 0's and 1's.
-	//taken from https://www.codejava.net/java-se/file-io/how-to-read-and-write-binary-files-in-java
-	
-	public String toString()
-	{	
-		try (
-				InputStream binaryStream = new FileInputStream("/Users/ava/eclipse-workspace/Alex's LZW/Advanced-Topics-LZW-main/Advanced-Topics-LZW/compressedFile.bin");				
-	        ) {
-	 
-	            
-	            byte[] buffer = new byte[BUFFER_SIZE];
-	 
-	            while (binaryStream.read(buffer) != -1) {
-	            	binaryString.write(buffer);
-	                
-	            //return buildingBinary;
-	            }
-	 
-	        } catch (IOException ex) {
-	        	//return EMPTY_BYTE_ARRAY;
-	        }
+
+	public void decompress()
+    {
+		//create originaInts arraylist
+		for(int i = 0; i < originalString.size(); i ++)
+        {
+			originalInts.add((Integer) dict.get(originalString.get(i)));
+        }
 		
-	}
-	
-	public void makeDecimalArray ()
-	{
-		decimalArray = new int [binaryString.length()/9];
-		
-		for (int i = 0; i < binaryString.length()-9; i+=9)
-		{
-			String binSubString = binaryString.substring(i, i+9)
-			decimalArray[i/9] = Integer.parseInt(binSubString,2);
-		}
-	}
-	
-	public void buildDictionary()//changes decodeDict and decodedString
-	{
-		for (int j = 0; j < 256; j++)
-		{
-			dict.put(j, "" + (char)j);
-		}
-		
-		String current = ""+ decodeDict.get(decimalArray[0]);
-		
-		for (int i = 1; i < decimalArray[].length; i++)
-		{
-			String next = ""+decodeDict.get(decimalArray[i]);
-			String firstNextChar = ""+next.charAt(0);
-			String cAndF = current + firstNextChar;
-			
-			decodeDict.put(255+i, cAndF);
-			
-			decodedString += current;
-		}
-	}
-	
-	
+		//building decode Dictionary
+		HashMap<Integer, String> decodeDict = new HashMap<Integer, String>();
+
+        for(int i= 0; i<256; i++)
+        {
+            decodeDict.put(i, ""+(char)i); 
+
+        }
+        
+        int asciiVal = 256;
+        
+        Integer currentAsciiVal = 0;
+        String current = "";
+        Integer nextAsciiVal = 0;
+        String next = "";
+        String firstNextChar = "";
+        for(int i = 0; i < originalInts.size()-1; i++)
+        {
+        	currentAsciiVal = originalInts.get(i);
+        	current = decodeDict.get(currentAsciiVal);
+        	
+        	nextAsciiVal = originalInts.get(i+1);
+        	next = decodeDict.get(nextAsciiVal);
+        	
+        	if (next != null)
+        	{
+        		firstNextChar = ""+next.charAt(0);
+        	}
+            decodeDict.put(asciiVal, current+firstNextChar);
+            asciiVal++;
+        }
+        
+        //printing output file as String
+        String output = "";
+        for(int i = 0; i < originalInts.size(); i++)
+            output += decodeDict.get(originalInts.get(i));
+
+        System.out.print("File decompressed\n");
+        
+        System.out.print("compressed text: "+output);
+        
+    }
 	
 	public static void main (String [] args) throws IOException
 	{
-		File f = new File ("/Users/ava/eclipse-workspace/Alex's LZW/Advanced-Topics-LZW-main/Advanced-Topics-LZW/lzw-file1.txt");
+		
+		File f = new File ("/Users/ava/eclipse-workspace/Alex-LZW-Compression/lzw-file1.txt");
 		LZW l = new LZW(f);
 		l.compress();
 		l.decompress();
